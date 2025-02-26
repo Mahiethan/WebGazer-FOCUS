@@ -26,7 +26,61 @@ Copy these two files into the [`./focus-app/src/webgazer`](https://github.com/an
 
 The original source code has been extensively customised to meet the specific needs of the FOCUS web application. This includes enhancements to existing functions, the creation of new functions, and various bug fixes.
 
-A more detailed discussion and justification of these modifications can be found in the included report titled `Webgazer Implementation`, which was created as part of the project's Design Portfolio.
+### Modified functions
+
+#### `index.mjs`
+
+- `getPupilFeatures()` - made asynchronous
+- `paintCurrentFrame()` - made asynchronous
+- `loop()`
+    - Limited rate for calculating gaze predictions
+    - Removed time calculation (no longer needed for new callback function)
+    - Uses new callback function to create video frames, using the `videoElementCanvas` as an argument
+    - No longer performs smoothing across most recent four predictions, due to performance issues - this is now done by the modified Kalman filter (see ``)
+    - Shows or hide gaze dot based on selected reading mode (see `hideGazeDot()`)
+- `init()` - made asynchronous, and introduced new boolean parameter, `recordMouse` to turn on/off mouse event listeners (mouse clicks and movements)
+    - This boolean is set to `true` when calibration is performed and mouse clicks/movements are recorded for the regression model, otherwise set to `false` to not record any new data.
+
+- `webgazer.begin()` - introduced new boolean parameter, `recordMouse`, which is used by `init()` to turn on mouse event listeners for calibration
+    - `webgazer.begin(true)` is used for calibration
+    - `webgazer.begin(false)` is used for reading page to provide frames and gaze predictions
+
+- `webgazer.end()` - uses the existing public variable `paused` to correctly end the Webgazer instance, clear the stream and end usage of webcam.
+
+#### `facemesh.mjs`
+
+- `getEyePatches()` - created a single function `getEyeData()` which uses one single 2D `context` variable to obtain left and right eye data, instead of creating two separate `context` variables for each eye.
+    - This aims to reduce memory usage, and improve performance with the use of the `{ willReadFrequently: true }` flag.
+
+<!-- #### `ridgeWeightedReg.mjs`
+
+- `predict()` - make gaze predictions asynchronous for this type of regression model used in the front-end app (weighted ridge) -->
+
+#### `util_regression.mjs`
+
+- `InitRegression()` - applies changes to parameters used by Kalman filter
+
+### New functions
+
+#### `index.mjs`
+
+- `webgazer.getRegressionData()` - new public function to obtain the current calibration data (regression data) if it exists
+
+- `webgazer.setRegressionData()` - new public function to set new calibration data to the regression model
+
+- `stopCalibration()` - new public function used in the calibration page to stop mouse clicks/movements from being recorded temporarily, without using `webgazer.end()`.
+
+- `hideGazeDot()` - new public function used to hide the gaze dot based on the currently selected reading mode.
+    - Makes use of a new public variable `showGazeDot` which is set to `true` when reading mode 4 (line-by-line unblurring) is currently selected.
+
+### Bug fixes
+
+#### `util_regression.mjs`
+
+- `setData()` - applied fix in this function when setting new calibration data. This was part of a closed issue from the original Webgazer repository, found at https://github.com/brownhci/WebGazer/issues/106, which is still not part of the main source or compiled code. 
+
+
+A more detailed discussion and justification of these modifications can be found in the included report titled `Webgazer Implementation`, which was created as part of the project's Design Evidence Portfolio.
 
 ## License
 
