@@ -6,6 +6,8 @@ const util_regression = {};
 
 
 /**
+ * MODIFIED FUNCTION - modified parameters for kalman filter
+ * 
  * Initialize new arrays and initialize Kalman filter for regressions.
  */
 util_regression.InitRegression = function() {
@@ -45,14 +47,15 @@ util_regression.InitRegression = function() {
     [1/2, 0,    1,   0],
     [0,  1/2,  0,   1]];// * delta_t
   var delta_t = 1/10; // The amount of time between frames
-  Q = mat.multScalar(Q, delta_t);
+
+  Q = mat.multScalar(Q, delta_t * 0.1);
 
   var H = [ [1, 0, 0, 0],
     [0, 1, 0, 0]];
   var pixel_error = 47; //We will need to fine tune this value [20200611 xk] I just put a random value here
 
   //This matrix represents the expected measurement error
-  var R = mat.multScalar(mat.identity(2), pixel_error);
+  var R = mat.multScalar(mat.identity(2), pixel_error * 10);
 
   var P_initial = mat.multScalar(mat.identity(4), 0.0001); //Initial covariance matrix
   var x_initial = [[500], [500], [0], [0]]; // Initial measurement matrix
@@ -82,11 +85,13 @@ util_regression.KalmanFilter = function(F, H, Q, R, P_initial, X_initial) {
 };
 
 /**
+ * MODIFIED FUNCTION - now performing asynchronously
+ * 
  * Get Kalman next filtered value and update the internal state
  * @param {Array} z - the new measurement
  * @return {Array}
  */
-util_regression.KalmanFilter.prototype.update = function(z) {
+util_regression.KalmanFilter.prototype.update = async function(z) {
     // Here, we define all the different matrix operations we will need
     var {
         add, sub, mult, inv, identity, transpose,
@@ -143,7 +148,6 @@ util_regression.ridge = function(y, X, k){
             m_Coefficients[i] = bb[i][0];
         }
         try{
-        	// look into this more, maybe it should be comparing against nc? but these lines are sus
             var n = (m_Coefficients.length !== 0 ? m_Coefficients.length/m_Coefficients.length: 0);
             if (m_Coefficients.length*n !== m_Coefficients.length){
                 console.log('Array length must be a multiple of m')
@@ -165,6 +169,8 @@ util_regression.ridge = function(y, X, k){
 }
 
 /**
+ * MODIFIED FUNCTION - bug fix
+ * 
  * Add given data to current data set then,
  * replace current data member with given data
  * @param {Array.<Object>} data - The data to set
@@ -175,8 +181,8 @@ util_regression.setData = function(data) {
     var leftData = new Uint8ClampedArray(data[i].eyes.left.patch.data);
     var rightData = new Uint8ClampedArray(data[i].eyes.right.patch.data);
     // Duplicate ImageData object
-    data[i].eyes.left.patch = new ImageData(leftData, data[i].eyes.left.width, data[i].eyes.left.height);
-    data[i].eyes.right.patch = new ImageData(rightData, data[i].eyes.right.width, data[i].eyes.right.height);
+    data[i].eyes.left.patch = new ImageData(new Uint8ClampedArray(Object.values(data[i].eyes.left.patch.data)), data[i].eyes.left.width, data[i].eyes.left.height);
+    data[i].eyes.right.patch = new ImageData(new Uint8ClampedArray(Object.values(data[i].eyes.right.patch.data)), data[i].eyes.right.width, data[i].eyes.right.height);
 
     // Add those data objects to model
     this.addData(data[i].eyes, data[i].screenPos, data[i].type);
