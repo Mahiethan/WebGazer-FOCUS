@@ -18,6 +18,8 @@ const TFFaceMesh = function() {
 TFFaceMesh.prototype.positionsArray = null;
 
 /**
+ * MODIFIED FUNCTION
+ * 
  * Isolates the two patches that correspond to the user's eyes
  * @param  {Object} video - the video element itself
  * @param  {Canvas} imageCanvas - canvas corresponding to the webcam stream
@@ -37,7 +39,7 @@ TFFaceMesh.prototype.getEyePatches = async function(video, imageCanvas, width, h
   // Pass in a video stream (or an image, canvas, or 3D tensor) to obtain an
   // array of detected faces from the MediaPipe graph.
   const predictions = await model.estimateFaces({
-    input: video,
+    input: imageCanvas,
     returnTensors: false,
     flipHorizontal: false,
     predictIrises: false,
@@ -105,23 +107,20 @@ TFFaceMesh.prototype.getEyePatches = async function(video, imageCanvas, width, h
   // Start building object to be returned
   var eyeObjs = {};
 
-  var leftImageData = imageCanvas.getContext('2d').getImageData(leftOriginX, leftOriginY, leftWidth, leftHeight);
-  eyeObjs.left = {
-    patch: leftImageData,
-    imagex: leftOriginX,
-    imagey: leftOriginY,
-    width: leftWidth,
-    height: leftHeight
-  };
+  function getEyeData(context, originX, originY, width, height) {
+    const imageData = context.getImageData(originX, originY, width, height);
+    return {
+        patch: imageData,
+        imagex: originX,
+        imagey: originY,
+        width: width,
+        height: height
+    };
+  }
 
-  var rightImageData = imageCanvas.getContext('2d').getImageData(rightOriginX, rightOriginY, rightWidth, rightHeight);
-  eyeObjs.right = {
-    patch: rightImageData,
-    imagex: rightOriginX,
-    imagey: rightOriginY,
-    width: rightWidth,
-    height: rightHeight
-  };
+  const context = imageCanvas.getContext('2d', { willReadFrequently: true });
+  eyeObjs.left = getEyeData(context, leftOriginX, leftOriginY, leftWidth, leftHeight);
+  eyeObjs.right = getEyeData(context, rightOriginX, rightOriginY, rightWidth, rightHeight);
 
   this.predictionReady = true;
 
