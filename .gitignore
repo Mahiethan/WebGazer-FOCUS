@@ -27,7 +27,7 @@
 *.mp4
 !/www/media/video/demo.mp4
 *.cpuprofile
-dist/
+# dist/
 node_modules/
 www/node_modules/
 www/data/src/WebGazerETRA2018Dataset_Release20180420/
@@ -39,7 +39,7 @@ www/webgazer.js
 *.pyc
 .idea/
 docs/
-dist/*.map
+# dist/*.map
 www/webgazer.js
 dist/*.min.js
 dist/tensorflow.js
