@@ -11,6 +11,7 @@ import Reg from './ridgeReg.mjs';
 import ridgeRegWeighted from './ridgeWeightedReg.mjs';
 import ridgeRegThreaded from './ridgeRegThreaded.mjs';
 import util from './util.mjs';
+import { load } from '@tensorflow-models/face-landmarks-detection';
 
 const webgazer = {};
 webgazer.tracker = {};
@@ -45,7 +46,9 @@ var yPast50 = new Array(50);
 var clockStart = performance.now();
 var latestEyeFeatures = null;
 var latestGazeData = null;
-var paused = false;
+var paused = true;
+var showGazeDot = webgazer.params.showGazeDot;
+
 //registered callback for loop
 var nopCallback = function(data, time) {};
 var callback = nopCallback;
@@ -190,18 +193,21 @@ function drawCoordinates(colour,x,y){
 }
 
 /**
+ * MODIFIED FUNCTION - now performing asynchronously
+ * 
  * Gets the pupil features by following the pipeline which threads an eyes object through each call:
  * curTracker gets eye patches -> blink detector -> pupil detection
  * @param {Canvas} canvas - a canvas which will have the video drawn onto it
  * @param {Number} width - the width of canvas
  * @param {Number} height - the height of canvas
  */
-function getPupilFeatures(canvas, width, height) {
+async function getPupilFeatures(canvas, width, height) {
   if (!canvas) {
     return;
   }
   try {
-    return curTracker.getEyePatches(videoElement, canvas, width, height);
+    const eyePatches = await curTracker.getEyePatches(videoElement, canvas, width, height); // asynchronous
+    return eyePatches;
   } catch(err) {
     console.log("can't get pupil features ", err);
     return null;
@@ -209,12 +215,14 @@ function getPupilFeatures(canvas, width, height) {
 }
 
 /**
+ * MODIFIED FUNCTION - now performing asynchronously
+ * 
  * Gets the most current frame of video and paints it to a resized version of the canvas with width and height
  * @param {Canvas} canvas - the canvas to paint the video on to
  * @param {Number} width - the new width of the canvas
  * @param {Number} height - the new height of the canvas
  */
-function paintCurrentFrame(canvas, width, height) {
+async function paintCurrentFrame(canvas, width, height) {
   if (canvas.width != width) {
     canvas.width = width;
   }
@@ -241,7 +249,7 @@ async function getPrediction(regModelIndex) {
     return null;
   }
   for (var reg in regs) {
-    predictions.push(regs[reg].predict(latestEyeFeatures));
+    predictions.push(await regs[reg].predict(latestEyeFeatures)); // made asynchronous
   }
   if (regModelIndex !== undefined) {
     return predictions[regModelIndex] === null ? null : {
@@ -260,10 +268,13 @@ async function getPrediction(regModelIndex) {
 }
 
 /**
+ * MODIFIED FUNCTION
+ * 
  * Runs every available animation frame if webgazer is not paused
  */
 var smoothingVals = new util.DataWindow(4);
 var k = 0;
+var totalIterations = 0;
 
 async function loop() {
   if (!paused) {
@@ -278,9 +289,30 @@ async function loop() {
     paintCurrentFrame(videoElementCanvas, videoElementCanvas.width, videoElementCanvas.height);
 
     // Get gaze prediction (ask clm to track; pass the data to the regressor; get back a prediction)
-    latestGazeData = getPrediction();
-    // Count time
-    var elapsedTime = performance.now() - clockStart;
+    if(showGazeDot)
+    {
+      totalIterations++;
+
+      if(totalIterations % 10 === 0) // Tweak this value to change the frequency of gaze prediction, more => low fps, less => high fps (but also consider that backend needs to receieve the frames in time so don't go too high > 30fps)
+      {
+        latestGazeData = await getPrediction();
+        totalIterations = 0;
+      }
+      else
+        latestGazeData = latestGazeData;
+    }
+    else
+    {
+      if(latestGazeData !== null)
+      {
+        latestGazeData.x = null;
+        latestGazeData.y = null;
+      }
+    }
+
+    
+    // Count time - No longer used (using new callback function which create video frames instead of printing time)
+    // var elapsedTime = performance.now() - clockStart;
 
     // Draw face overlay
     if( webgazer.params.showFaceOverlay )
@@ -296,26 +328,30 @@ async function loop() {
     if( webgazer.params.showFaceFeedbackBox )
       checkEyesInValidationBox();
 
-    latestGazeData = await latestGazeData;
+    // latestGazeData = await latestGazeData;
 
     // [20200623 xk] callback to function passed into setGazeListener(fn)
-    callback(latestGazeData, elapsedTime);
+    // callback(latestGazeData, elapsedTime);
+    callback(latestGazeData, videoElementCanvas); // Use new callback function to create video frames of webcam stream to send to backend
 
     if( latestGazeData ) {
-      // [20200608 XK] Smoothing across the most recent 4 predictions, do we need this with Kalman filter?
-      smoothingVals.push(latestGazeData);
-      var x = 0;
-      var y = 0;
-      var len = smoothingVals.length;
-      for (var d in smoothingVals.data) {
-        x += smoothingVals.get(d).x;
-        y += smoothingVals.get(d).y;
-      }
 
-      var pred = util.bound({'x':x/len, 'y':y/len});
+      /* No longer smoothing points here - this causes slowdown */
+      /* Kalman filter already modified to provide smoothing */
+
+      // [20200608 XK] Smoothing across the most recent 4 predictions, do we need this with Kalman filter?
+      // smoothingVals.push(latestGazeData);
+      // var x = 0;
+      // var y = 0;
+      // var len = smoothingVals.length;
+      // for (var d in smoothingVals.data) {
+      //   x += smoothingVals.get(d).x;
+      //   y += smoothingVals.get(d).y;
+      // }
+
+      var pred = util.bound(latestGazeData);
 
       if (webgazer.params.storingPoints) {
-        drawCoordinates('blue',pred.x,pred.y); //draws the previous predictions
         //store the position of the past fifty occuring tracker preditions
         webgazer.storePoints(pred.x, pred.y, k);
         k++;
@@ -323,11 +359,14 @@ async function loop() {
           k = 0;
         }
       }
-      // GazeDot
-      if (webgazer.params.showGazeDot) {
+      // Make gaze dot visible or not
+      if (webgazer.params.showGazeDot && showGazeDot) {
         gazeDot.style.display = 'block';
+        gazeDot.style.transform = 'translate3d(' + pred.x + 'px,' + pred.y + 'px,0)';
       }
-      gazeDot.style.transform = 'translate3d(' + pred.x + 'px,' + pred.y + 'px,0)';
+      else
+        gazeDot.style.display = 'none';
+      
     } else {
       gazeDot.style.display = 'none';
     }
@@ -467,10 +506,13 @@ function clearData() {
 }
 
 /**
+ * MODIFIED FUNCTION
+ * 
  * Initializes all needed dom elements and begins the loop
  * @param {URL} stream - The video stream to use
+ * @param {boolean} recordMouse - Either use for calibration (true) or just for predictions (false)
  */
-async function init(stream) {
+async function init(stream,recordMouse) {
   //////////////////////////
   // Video and video preview
   //////////////////////////
@@ -551,6 +593,7 @@ async function init(stream) {
   gazeDot.style.opacity = '0.7';
   gazeDot.style.width = '10px';
   gazeDot.style.height = '10px';
+  gazeDot.style.pointerEvents = 'none'; // Disable cursor events on the dot
 
   // Add other preview/feedback elements to the screen once the video has shown and its parameters are initialized
   videoContainerElement.appendChild(videoElement);
@@ -574,7 +617,8 @@ async function init(stream) {
     videoElement.addEventListener('loadeddata', setupPreviewVideo);
   });
 
-  addMouseEventListeners();
+  if(recordMouse)
+    addMouseEventListeners();
 
   //BEGIN CALLBACK LOOP
   paused = false;
@@ -618,12 +662,15 @@ function setUserMediaVariable(){
 //PUBLIC FUNCTIONS - CONTROL
 
 /**
+ * MODIFIED FUNCTION
+ * 
  * Starts all state related to webgazer -> dataLoop, video collection, click listener
  * If starting fails, call `onFail` param function.
+ * @param {boolean} recordMouse - Either use for calibration (true) or just for predictions (false)
  * @param {Function} onFail - Callback to call in case it is impossible to find user camera
  * @returns {*}
  */
-webgazer.begin = function(onFail) {
+webgazer.begin = function(recordMouse, onFail) {
   if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.chrome){
     alert("WebGazer works only over https. If you are doing local development, you need to run a local server.");
   }
@@ -651,7 +698,7 @@ webgazer.begin = function(onFail) {
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia( webgazer.params.camConstraints );
-      await init(stream);
+      await init(stream,recordMouse);
       resolve(webgazer);
     } catch(err) {
       onFail();
@@ -698,18 +745,23 @@ webgazer.resume = async function() {
 };
 
 /**
+ * MODIFIED FUNCTION
+ * 
  * stops collection of data and removes dom modifications, must call begin() to reset up
  * @return {webgazer} this
  */
 webgazer.end = function() {
   //loop may run an extra time and fail due to removed elements
-  paused = true;
+  if(!paused)
+  {
+    paused = true;
 
-  //webgazer.stopVideo(); // uncomment if you want to stop the video from streaming
+    webgazer.stopVideo(); // uncomment if you want to stop the video from streaming
 
-  //remove video element and canvas
-  videoContainerElement.remove();
-  gazeDot.remove();
+    //remove video element and canvas
+    videoContainerElement.remove();
+    gazeDot.remove();
+  }
 
   return webgazer;
 };
@@ -1162,6 +1214,74 @@ webgazer.getVideoPreviewToCameraResolutionRatio = function() {
  */
 webgazer.getStoredPoints = function() {
   return [xPast50, yPast50];
+}
+
+
+/* 
+-------------------------------------------------------------------------------------------------------------------------------------------
+User-defined public functions for use with FOCUS front-end application
+-------------------------------------------------------------------------------------------------------------------------------------------
+*/
+
+/**
+ * NEW FUNCTION
+ * 
+ * Get the regression data created using calibration.
+ * This data will be stored under each user in the database.
+ *
+ * @returns {Array.<Object>|*} The regression data if available, otherwise null.
+ */
+webgazer.getRegressionData = function() {
+  if (regs.length === 0)
+  {
+    console.log('regression not created');
+    return null;
+  }
+  else
+    return regs[0].getData();
+}
+
+/**
+ * NEW FUNCTION
+ * 
+ * Set new calibration data to the current regression model.
+ * This is used to set new calibration data or update existing calibration data for each user.
+ *
+ * @param {Object} loadData - The new calibration data to be set.
+ */
+webgazer.setRegressionData = function(loadData) {
+  if (regs.length === 0)
+  {
+    console.log('regression not created');
+  }
+  else
+  {
+    regs[0].setData(loadData);
+  }
+}
+
+/**
+ * NEW FUNCTION
+ * 
+ * Remove event listeners for mouse click and move.
+ */
+webgazer.stopCalibration = function() {
+  document.removeEventListener('click', clickListener, true);
+  document.removeEventListener('mousemove', moveListener, true);
+};
+
+/**
+ * NEW FUNCTION
+ * 
+ * Enable or disable the gaze dot depending on the currently selected reading mode.
+ *
+ * @param {number} readingMode - The current reading mode.
+ */
+webgazer.hideGazeDot = function(readingMode) {
+  if(readingMode !== 4) // Only show gaze dot in reading mode 4 (line-by-line unblurring)
+    showGazeDot = false;
+  else
+    showGazeDot = true;
 }
 
 export default webgazer;
