@@ -26,12 +26,14 @@ reg.RidgeWeightedReg.prototype.init = util_regression.InitRegression
 reg.RidgeWeightedReg.prototype.addData = util_regression.addData
 
 /**
+ * MODIFIED FUNCTION - now performing asynchronously
+ * 
  * Try to predict coordinates from pupil data
  * after apply linear regression on data set
  * @param {Object} eyesObj - The current user eyes object
  * @returns {Object}
  */
-reg.RidgeWeightedReg.prototype.predict = function(eyesObj) {
+reg.RidgeWeightedReg.prototype.predict = async function(eyesObj) {
     if (!eyesObj || this.eyeFeaturesClicks.length === 0) {
         return null;
     }
@@ -92,7 +94,7 @@ reg.RidgeWeightedReg.prototype.predict = function(eyesObj) {
     if (params.applyKalmanFilter) {
         // Update Kalman model, and get prediction
         var newGaze = [predictedX, predictedY]; // [20200607 xk] Should we use a 1x4 vector?
-        newGaze = this.kalman.update(newGaze);
+        newGaze = await this.kalman.update(newGaze);
 
         return {
             x: newGaze[0],
