@@ -15,7 +15,7 @@ const params = {
   showFaceOverlay: true,
   showFaceFeedbackBox: true,
   showGazeDot: true,
-  camConstraints: { video: { width: { min: 320, ideal: 640, max: 1920 }, height: { min: 240, ideal: 480, max: 1080 }, facingMode: "user" } },
+  camConstraints: { audio: false, video: { width: { min: 320, ideal: 640, max: 1920 }, height: { min: 240, ideal: 480, max: 1080 }, facingMode: "user" } },
   dataTimestep: 50,
   showVideoPreview: true,
   applyKalmanFilter: true,
