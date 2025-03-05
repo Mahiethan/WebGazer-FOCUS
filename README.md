@@ -38,7 +38,7 @@ The original source code has been extensively customised to meet the specific ne
     - Limited rate for calculating gaze predictions
     - Removed time calculation (no longer needed for new callback function)
     - Uses new callback function to create video frames, using the `videoElementCanvas` as an argument
-    - No longer performs smoothing across most recent four predictions, due to performance issues - this is now done by the modified Kalman filter (see ``)
+    - No longer performs smoothing across most recent four predictions, due to performance issues - this is now done by the modified Kalman filter (see `InitRegression`)
     - Shows or hide gaze dot based on selected reading mode (see `hideGazeDot()`)
 - `init()` - made asynchronous, and introduced new boolean parameter, `recordMouse` to turn on/off mouse event listeners (mouse clicks and movements)
     - This boolean is set to `true` when calibration is performed and mouse clicks/movements are recorded for the regression model, otherwise set to `false` to not record any new data.
