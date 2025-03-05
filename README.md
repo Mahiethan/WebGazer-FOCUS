@@ -20,6 +20,8 @@ The front-end React application stores this up-to-date `webgazer.js` file inside
 
 After applying any changes to the code, run the command `npm run build` at the root directory to create two files: `webgazer.js` and `webgazer.js.map`. These files are generated inside the `./dist` folder within this repository.
 
+`webgazer.js` is being used as an import in the front-end React components. Therefore, the line `export default webgazer;` is required to be added to the end of the file. **This has to be done every time `npm run build` is run to generate a new `webgazer.js` file**.
+
 Copy these two files into the [`./focus-app/src/webgazer`](https://github.com/anaya-s/FOCUS-frontend/tree/main/focus-app/src/webgazer)  folder of the front-end code, to update the Webgazer library import used by the application. To run a local development build of the front-end code, follow the [`README.md`](https://github.com/anaya-s/FOCUS-frontend/blob/main/README.md) file contained inside that repository.
 
 ## Modifications to the source code
@@ -82,6 +84,10 @@ The original source code has been extensively customised to meet the specific ne
 #### `params.mjs`
 
 - `params.camConstraints` - the `audio` property inside the `camConstaints` parameter was not originally specified, which means that by default, it is set to `false`. It is now manually set to `false` to ensure that audio is not recorded during the webcam stream, as it is not required.
+
+#### `package.json`
+
+- Installed new `rimraf` package in order to run `npm run build` to generate the necessary `webgazer.js` and `webgazer.js.map` files for the front-end.
 
 A more detailed discussion and justification of these modifications can be found in the included report titled `Webgazer Implementation`, which was created as part of the project's Design Evidence Portfolio.
 
