@@ -73,12 +73,15 @@ The original source code has been extensively customised to meet the specific ne
 - `hideGazeDot()` - new public function used to hide the gaze dot based on the currently selected reading mode.
     - Makes use of a new public variable `showGazeDot` which is set to `true` when reading mode 4 (line-by-line unblurring) is currently selected.
 
-### Bug fixes
+### Bug fixes & additional changes
 
 #### `util_regression.mjs`
 
 - `setData()` - applied fix in this function when setting new calibration data. This was part of a closed issue from the original Webgazer repository, found at https://github.com/brownhci/WebGazer/issues/106, which is still not part of the main source or compiled code. 
 
+#### `params.mjs`
+
+- `params.camConstraints` - the `audio` property inside the `camConstaints` parameter was not originally specified, which means that by default, it is set to `false`. It is now manually set to `false` to ensure that audio is not recorded during the webcam stream, as it is not required.
 
 A more detailed discussion and justification of these modifications can be found in the included report titled `Webgazer Implementation`, which was created as part of the project's Design Evidence Portfolio.
 
