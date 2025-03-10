@@ -293,7 +293,7 @@ async function loop() {
     {
       totalIterations++;
 
-      if(totalIterations % 10 === 0) // Tweak this value to change the frequency of gaze prediction, more => low fps, less => high fps (but also consider that backend needs to receieve the frames in time so don't go too high > 30fps)
+      if(totalIterations % 5 === 0) // Tweak this value to change the frequency of gaze prediction, more => low fps, less => high fps (but also consider that backend needs to receieve the frames in time so don't go too high > 30fps)
       {
         latestGazeData = await getPrediction();
         totalIterations = 0;
